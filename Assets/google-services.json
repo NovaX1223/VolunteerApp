@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "533761407104",
+    "firebase_url": "https://servicesoftware-a7cc5-default-rtdb.firebaseio.com",
+    "project_id": "servicesoftware-a7cc5",
+    "storage_bucket": "servicesoftware-a7cc5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:533761407104:android:cb6f75f63dd48a5a4a4e65",
+        "android_client_info": {
+          "package_name": "com.UnityTechnologies.com.unity.template.urpblank"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLMDhbFVlmG62JAu5w79nbdmiVnxfUxZs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
