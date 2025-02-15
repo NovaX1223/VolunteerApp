@@ -7,6 +7,8 @@ using Firebase.Auth;
 using System;
 using System.Threading.Tasks;
 using Firebase.Extensions;
+using Firebase.Database; 
+
 
 public class GameControllingScript : MonoBehaviour
 {
@@ -24,14 +26,16 @@ public class GameControllingScript : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
+        InitializeFirebaseDatabase();
+        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+        {
             var dependencyStatus = task.Result;
             if (dependencyStatus == Firebase.DependencyStatus.Available)
             {
                 // Create and hold a reference to your FirebaseApp,
                 // where app is a Firebase.FirebaseApp property of your application class.
                 InitializeFirebase();
-                Debug.Log("Firebase is ready"); 
+                Debug.Log("Firebase is ready");
 
                 // Set a flag here to indicate whether Firebase is ready to use by your app.
             }
@@ -42,6 +46,23 @@ public class GameControllingScript : MonoBehaviour
                 // Firebase Unity SDK is not safe to use here.
             }
         });
+
+        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
+            var dependencyStatus = task.Result;
+            if (dependencyStatus == Firebase.DependencyStatus.Available)
+            {
+                InitializeFirebase(); // Initialize Firebase Auth
+                InitializeFirebaseDatabase(); // Initialize Firebase Database
+                Debug.Log("Firebase is ready");
+            }
+            else
+            {
+                UnityEngine.Debug.LogError($"Could not resolve all Firebase dependencies: {dependencyStatus}");
+            }
+        });
+
+
+
     }
 
     // Update is called once per frame
@@ -69,8 +90,8 @@ public class GameControllingScript : MonoBehaviour
         Debug.Log("User typed email: " + enteredemailText + " This was password: " + enteredpasswordText);
 
         SignInUser(enteredemailText, enteredpasswordText);
-       
-    } 
+
+    }
 
 
 
@@ -129,7 +150,7 @@ public class GameControllingScript : MonoBehaviour
             Debug.LogFormat("User signed in successfully: {0} ({1})",
                 result.User.DisplayName, result.User.UserId);
 
-            
+
 
 
         });
@@ -142,8 +163,8 @@ public class GameControllingScript : MonoBehaviour
         InitialPage.SetActive(false);
         LoginPage.SetActive(false);
         WelcomePage.SetActive(true);
-    
-    
+
+
     }
 
     public void StartFromBeginning()
@@ -171,8 +192,8 @@ public class GameControllingScript : MonoBehaviour
             {
                 Debug.Log("Signed out " + user.UserId);
 
-                StartFromBeginning(); 
-            
+                StartFromBeginning();
+
             }
             user = auth.CurrentUser;
             if (signedIn)
@@ -235,6 +256,37 @@ public class GameControllingScript : MonoBehaviour
         }
     }
 
+  
+private DatabaseReference dbReference; // Reference to Firebase Realtime Database
 
+
+
+
+    void InitializeFirebaseDatabase()
+    {
+        dbReference = FirebaseDatabase.DefaultInstance.RootReference;
+        Debug.Log("Firebase Realtime Database initialized");
+    }
+
+    public void PostStringToDatabase()
+    {
+        string key = "1";
+        string value = "hello"; 
+
+
+        dbReference.Child("messages").Child(key).SetValueAsync(value)
+            .ContinueWith(task =>
+            {
+                if (task.IsCompleted)
+                {
+                    Debug.Log("String posted successfully!");
+                }
+                else
+                {
+                    Debug.LogError("Failed to post string: " + task.Exception);
+                }
+            });
+    
+    }
 
 }
