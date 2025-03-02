@@ -7,7 +7,7 @@ using Firebase.Auth;
 using System;
 using System.Threading.Tasks;
 using Firebase.Extensions;
-using Firebase.Database; 
+using Firebase.Database;
 
 
 public class GameControllingScript : MonoBehaviour
@@ -18,10 +18,13 @@ public class GameControllingScript : MonoBehaviour
     public GameObject WelcomePage;
     public TMP_InputField LoginEmailInput;
     public TMP_InputField LoginPasswordInput;
+    public TMP_InputField InputMessage;
+
+
 
     Firebase.Auth.FirebaseAuth auth;
     Firebase.Auth.FirebaseUser user;
-
+    public string currentusername;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -47,7 +50,8 @@ public class GameControllingScript : MonoBehaviour
             }
         });
 
-        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
+        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+        {
             var dependencyStatus = task.Result;
             if (dependencyStatus == Firebase.DependencyStatus.Available)
             {
@@ -150,7 +154,7 @@ public class GameControllingScript : MonoBehaviour
             Debug.LogFormat("User signed in successfully: {0} ({1})",
                 result.User.DisplayName, result.User.UserId);
 
-
+            currentusername = result.User.DisplayName;
 
 
         });
@@ -199,6 +203,7 @@ public class GameControllingScript : MonoBehaviour
             if (signedIn)
             {
                 Debug.Log("Signed in " + user.UserId);
+                currentusername = user.DisplayName; 
 
                 WelcomeUser();
 
@@ -256,8 +261,8 @@ public class GameControllingScript : MonoBehaviour
         }
     }
 
-  
-private DatabaseReference dbReference; // Reference to Firebase Realtime Database
+
+    private DatabaseReference dbReference; // Reference to Firebase Realtime Database
 
 
 
@@ -270,11 +275,11 @@ private DatabaseReference dbReference; // Reference to Firebase Realtime Databas
 
     public void PostStringToDatabase()
     {
-        string key = "1";
-        string value = "hello"; 
+        string key ="" + GetSecondsSince2024();
+        string value = InputMessage.text;
+        string formattedDate = DateTime.Now.ToString("yyyy/MM/dd hh:mm tt");
 
-
-        dbReference.Child("messages").Child(key).SetValueAsync(value)
+        dbReference.Child("messages").Child(key).Child("Name").SetValueAsync(currentusername)
             .ContinueWith(task =>
             {
                 if (task.IsCompleted)
@@ -286,7 +291,50 @@ private DatabaseReference dbReference; // Reference to Firebase Realtime Databas
                     Debug.LogError("Failed to post string: " + task.Exception);
                 }
             });
-    
+
+
+
+        dbReference.Child("messages").Child(key).Child("Time").SetValueAsync(formattedDate)
+      .ContinueWith(task =>
+      {
+          if (task.IsCompleted)
+          {
+              Debug.Log("String posted successfully!");
+          }
+          else
+          {
+              Debug.LogError("Failed to post string: " + task.Exception);
+          }
+      });
+
+        dbReference.Child("messages").Child(key).Child("Message").SetValueAsync(value)
+      .ContinueWith(task =>
+      {
+          if (task.IsCompleted)
+          {
+              Debug.Log("String posted successfully!");
+          }
+          else
+          {
+              Debug.LogError("Failed to post string: " + task.Exception);
+          }
+      });
+
+    }
+
+    int GetSecondsSince2024()
+    {
+        // Define midnight UTC on January 1, 2024
+        DateTime startOf2024 = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        // Get the current time in UTC
+        DateTime now = DateTime.UtcNow;
+
+        // Get the difference
+        TimeSpan elapsed = now - startOf2024;
+
+        // Return total seconds as an int (could overflow if it's too large)
+        return (int)elapsed.TotalSeconds;
     }
 
 }
