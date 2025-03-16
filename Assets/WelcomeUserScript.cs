@@ -4,6 +4,7 @@ using TMPro;
 using Firebase.Database;
 using Firebase.Extensions;
 using System.Collections.Generic;
+using System.Collections;
 public class WelcomeUserScript : MonoBehaviour
 {
     [Header("UI References")]
@@ -19,9 +20,17 @@ public class WelcomeUserScript : MonoBehaviour
     {
         dbReference = FirebaseDatabase.DefaultInstance.RootReference;
 
-        // Fetch posts on startup
-        LoadAllMessages();
+        // Fetch existing posts on startup
+       // LoadAllMessages();
+
+        // Attach a listener for real-time updates
+        FirebaseDatabase.DefaultInstance
+            .GetReference("messages")
+            .ValueChanged += HandleDatabaseUpdate;
     }
+
+
+
 
     // Update is called once per frame
     void Update()
@@ -37,10 +46,30 @@ public class WelcomeUserScript : MonoBehaviour
     
     
     }
+    void HandleDatabaseUpdate(object sender, ValueChangedEventArgs args)
+    {
+        if (args.DatabaseError != null)
+        {
+            Debug.LogError("Database error: " + args.DatabaseError.Message);
+            return;
+        }
+
+        Debug.Log("Database updated! Waiting before loading messages...");
+
+        // Start a coroutine to introduce a delay
+        StartCoroutine(DelayedLoadMessages(0.1f)); // 1-second delay
+    }
+
+    // Coroutine to delay loading messages
+    private IEnumerator DelayedLoadMessages(float delayTime)
+    {
+        yield return new WaitForSeconds(delayTime);
+        Debug.Log("Delay over, reloading messages...");
+        LoadAllMessages();
+    }
 
     public void LoadAllMessages()
     {
-        // Retrieve all children under "messages"
         FirebaseDatabase.DefaultInstance
             .GetReference("messages")
             .GetValueAsync()
@@ -52,47 +81,52 @@ public class WelcomeUserScript : MonoBehaviour
                     return;
                 }
 
-                if (task.IsCompleted)
+                if (task.IsCompletedSuccessfully)
                 {
                     DataSnapshot snapshot = task.Result;
 
-                    // Optionally clear existing items in the list
+                    //  Debugging: Print the entire Firebase JSON data
+                    Debug.Log("Firebase Data: " + snapshot.GetRawJsonValue());
+
+                    if (snapshot.ChildrenCount == 0)
+                    {
+                        Debug.LogWarning("No messages found in database.");
+                        return;
+                    }
+
+                    // Clear previous messages
                     foreach (Transform child in contentParent)
                     {
                         Destroy(child.gameObject);
                     }
 
-                    // Iterate through each child (each post)
+                    // Iterate through each message
                     foreach (DataSnapshot postSnapshot in snapshot.Children)
                     {
-                        // postSnapshot.Key might be "36815481", etc.
+                        Dictionary<string, object> postDict = postSnapshot.Value as Dictionary<string, object>;
 
-                        // Approach A: read as dictionary
-                        Dictionary<string, object> postDict = (Dictionary<string, object>)postSnapshot.Value;
+                        if (postDict == null)
+                        {
+                            Debug.LogWarning("Empty post data, skipping.");
+                            continue;
+                        }
 
-                        // Extract fields (assuming they match your structure)
                         string message = postDict.ContainsKey("Message") ? postDict["Message"].ToString() : "";
                         string name = postDict.ContainsKey("Name") ? postDict["Name"].ToString() : "";
                         string time = postDict.ContainsKey("Time") ? postDict["Time"].ToString() : "";
 
-                        // Instantiate a prefab for this post
-                        GameObject newPostItem = Instantiate(postItemPrefab, contentParent);
+                        Debug.Log($"Loaded Post - Name: {name}, Time: {time}, Message: {message}");
 
-                        // Now set the text fields inside the prefab 
-                        // (assuming they have child Text elements or a custom script)
+                        GameObject newPostItem = Instantiate(postItemPrefab, contentParent);
                         TextMeshProUGUI postText = newPostItem.GetComponent<TextMeshProUGUI>();
 
-                        // Make your combined text
-                        string combinedText = $"Name: {name}\nTime: {time}\nMessage: {message}";
-
-                        // Assign
-                        postText.text = combinedText;
+                        postText.text = $"Name: {name}\nTime: {time}\nMessage: {message}";
                         postText.enabled = true;
-                        // The child names ("NameText", "MessageText", etc.) must match your prefab
                     }
                 }
             });
     }
+
 
 
 }

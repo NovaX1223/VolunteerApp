@@ -8,11 +8,12 @@ using System;
 using System.Threading.Tasks;
 using Firebase.Extensions;
 using Firebase.Database;
+using System.Collections;
 
 
 public class GameControllingScript : MonoBehaviour
 {
-
+    public GameObject MessagePage;
     public GameObject InitialPage;
     public GameObject LoginPage;
     public GameObject WelcomePage;
@@ -25,6 +26,7 @@ public class GameControllingScript : MonoBehaviour
     Firebase.Auth.FirebaseAuth auth;
     Firebase.Auth.FirebaseUser user;
     public string currentusername;
+    public WelcomeUserScript welcomeUserScript;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -161,13 +163,21 @@ public class GameControllingScript : MonoBehaviour
     }
 
 
+    public void ShowMessageButtonPressed()
+    {
+        InitialPage.SetActive(false);
+        LoginPage.SetActive(false);
+        WelcomePage.SetActive(false);
+        MessagePage.SetActive(true);
 
+
+    }
     void WelcomeUser()
     {
         InitialPage.SetActive(false);
         LoginPage.SetActive(false);
         WelcomePage.SetActive(true);
-
+        MessagePage.SetActive(false);
 
     }
 
@@ -176,7 +186,10 @@ public class GameControllingScript : MonoBehaviour
         InitialPage.SetActive(true);
         LoginPage.SetActive(false);
         WelcomePage.SetActive(false);
+        MessagePage.SetActive(false);
     }
+
+
 
 
     void InitializeFirebase()
@@ -275,52 +288,32 @@ public class GameControllingScript : MonoBehaviour
 
     public void PostStringToDatabase()
     {
-        string key ="" + GetSecondsSince2024();
+        string key = GetSecondsSince2024().ToString();
         string value = InputMessage.text;
         string formattedDate = DateTime.Now.ToString("yyyy/MM/dd hh:mm tt");
 
-        dbReference.Child("messages").Child(key).Child("Name").SetValueAsync(currentusername)
-            .ContinueWith(task =>
+        Task nameTask = dbReference.Child("messages").Child(key).Child("Name").SetValueAsync(currentusername);
+        Task timeTask = dbReference.Child("messages").Child(key).Child("Time").SetValueAsync(formattedDate);
+        Task messageTask = dbReference.Child("messages").Child(key).Child("Message").SetValueAsync(value);
+
+        Task.WhenAll(nameTask, timeTask, messageTask).ContinueWith(task =>
+        {
+            if (task.IsCompletedSuccessfully)
             {
-                if (task.IsCompleted)
-                {
-                    Debug.Log("String posted successfully!");
-                }
-                else
-                {
-                    Debug.LogError("Failed to post string: " + task.Exception);
-                }
-            });
+                Debug.Log("All messages posted successfully!");
 
-
-
-        dbReference.Child("messages").Child(key).Child("Time").SetValueAsync(formattedDate)
-      .ContinueWith(task =>
-      {
-          if (task.IsCompleted)
-          {
-              Debug.Log("String posted successfully!");
-          }
-          else
-          {
-              Debug.LogError("Failed to post string: " + task.Exception);
-          }
-      });
-
-        dbReference.Child("messages").Child(key).Child("Message").SetValueAsync(value)
-      .ContinueWith(task =>
-      {
-          if (task.IsCompleted)
-          {
-              Debug.Log("String posted successfully!");
-          }
-          else
-          {
-              Debug.LogError("Failed to post string: " + task.Exception);
-          }
-      });
+          
+            }
+            else
+            {
+                Debug.LogError("Failed to post all messages: " + task.Exception);
+            }
+        });
 
     }
+
+
+
 
     int GetSecondsSince2024()
     {
