@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Firebase.Extensions;
 using Firebase.Database;
 using System.Collections;
+using UnityEditor;
 
 
 public class GameControllingScript : MonoBehaviour
@@ -20,6 +21,7 @@ public class GameControllingScript : MonoBehaviour
     public TMP_InputField LoginEmailInput;
     public TMP_InputField LoginPasswordInput;
     public TMP_InputField InputMessage;
+    public string selectedBase64Image = "empty"; // default value
 
 
 
@@ -31,6 +33,9 @@ public class GameControllingScript : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+
+        StartCoroutine(CallAfterDelay());
+
         InitializeFirebaseDatabase();
         Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
         {
@@ -71,12 +76,59 @@ public class GameControllingScript : MonoBehaviour
 
     }
 
+
+    IEnumerator CallAfterDelay()
+    {
+        // Wait for 2 seconds
+        yield return new WaitForSeconds(2f);
+
+        // Call your method
+        SignOutUser();
+    }
+
     // Update is called once per frame
     void Update()
     {
 
     }
 
+
+
+    void SaveUserToDatabase(string email, string username, string base64Image)
+    {
+        string encodedEmail = email.Replace(".", "_").Replace("@", "_");
+
+        UserData userData = new UserData(email, username, base64Image);
+        string json = JsonUtility.ToJson(userData);
+
+        dbReference.Child("user").Child(encodedEmail).SetRawJsonValueAsync(json).ContinueWith(task =>
+        {
+            if (task.IsCompleted)
+            {
+                Debug.Log("User data with image saved to database.");
+            }
+            else
+            {
+                Debug.LogError("Error saving user data: " + task.Exception);
+            }
+        });
+    }
+
+
+    [Serializable]
+    public class UserData
+    {
+        public string email;
+        public string username;
+        public string profileImage;
+
+        public UserData(string email, string username, string profileImage)
+        {
+            this.email = email;
+            this.username = username;
+            this.profileImage = profileImage;
+        }
+    }
 
 
 
@@ -97,22 +149,26 @@ public class GameControllingScript : MonoBehaviour
 
         SignInUser(enteredemailText, enteredpasswordText);
 
+        currentusername = enteredemailText;
+
     }
 
-
+  
 
     public void PressedLoginPageSignUpButton()
     {
         string enteredemailText = LoginEmailInput.text;
         string enteredpasswordText = LoginPasswordInput.text;
+       
 
         Debug.Log("User typed email: " + enteredemailText + " This was password: " + enteredpasswordText);
 
-        CreateUser(enteredemailText, enteredpasswordText, enteredemailText);
+        CreateUser(enteredemailText, enteredpasswordText, enteredemailText, selectedBase64Image );
 
     }
 
-    void CreateUser(string email, string password, string Username)
+    void CreateUser(string email, string password, string username, string base64Image)
+
     {
         auth.CreateUserWithEmailAndPasswordAsync(email, password).ContinueWith(task =>
         {
@@ -135,7 +191,115 @@ public class GameControllingScript : MonoBehaviour
 
         UpdateUserProfile(email);
 
+        SaveUserToDatabase(email, username, base64Image);
     }
+
+
+
+    public void SelectImageFromFile()
+    {
+#if UNITY_EDITOR
+        string path = EditorUtility.OpenFilePanel("Select Image", "", "png,jpg,jpeg");
+        if (!string.IsNullOrEmpty(path))
+        {
+            StartCoroutine(LoadAndCompressImage(path));
+        }
+#else
+        Debug.LogWarning("File picker not yet implemented for mobile.");
+#endif
+    }
+
+
+
+    IEnumerator LoadAndCompressImage(string path)
+    {
+        byte[] imageBytes = System.IO.File.ReadAllBytes(path);
+
+        Texture2D texture = new Texture2D(2, 2);
+        texture.LoadImage(imageBytes); // Load image from byte array
+
+        // Compress the image (resize or lower quality)
+        Texture2D resized = ResizeTexture(texture, 64, 64); // Resize to 128x128
+        byte[] compressedBytes = resized.EncodeToJPG(10); // 50 = compression quality (0-100)
+
+        selectedBase64Image = Convert.ToBase64String(compressedBytes); // <-- store in field
+        Debug.Log($"Image compressed. Final size: {selectedBase64Image.Length / 1024} KB");
+
+        yield break;
+    }
+
+    Texture2D ResizeTexture(Texture2D source, int newWidth, int newHeight)
+    {
+        RenderTexture rt = RenderTexture.GetTemporary(newWidth, newHeight);
+        Graphics.Blit(source, rt);
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = rt;
+
+        Texture2D newTex = new Texture2D(newWidth, newHeight);
+        newTex.ReadPixels(new Rect(0, 0, newWidth, newHeight), 0, 0);
+        newTex.Apply();
+
+        RenderTexture.active = previous;
+        RenderTexture.ReleaseTemporary(rt);
+
+        return newTex;
+    }
+
+
+
+
+    void SaveImageStringToFirebase(string base64Image)
+    {
+        string email = auth.CurrentUser.Email;
+        string encodedEmail = email.Replace(".", "_").Replace("@", "_");
+
+        dbReference.Child("user").Child(encodedEmail).Child("profileImage").SetValueAsync(base64Image).ContinueWith(task =>
+        {
+            if (task.IsCompleted)
+            {
+                Debug.Log("Image string saved successfully.");
+            }
+            else
+            {
+                Debug.LogError("Failed to save image string: " + task.Exception);
+            }
+        });
+    }
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     public void SignInUser(string email, string password)
     {
@@ -156,7 +320,7 @@ public class GameControllingScript : MonoBehaviour
             Debug.LogFormat("User signed in successfully: {0} ({1})",
                 result.User.DisplayName, result.User.UserId);
 
-            currentusername = result.User.DisplayName;
+           // currentusername = result.User.DisplayName;
 
 
         });
@@ -216,7 +380,7 @@ public class GameControllingScript : MonoBehaviour
             if (signedIn)
             {
                 Debug.Log("Signed in " + user.UserId);
-                currentusername = user.DisplayName; 
+                //currentusername = user.DisplayName; 
 
                 WelcomeUser();
 

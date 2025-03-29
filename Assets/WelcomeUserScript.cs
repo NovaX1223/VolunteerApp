@@ -5,8 +5,11 @@ using Firebase.Database;
 using Firebase.Extensions;
 using System.Collections.Generic;
 using System.Collections;
+using UnityEngine.UI;
 public class WelcomeUserScript : MonoBehaviour
 {
+    [Header("Profile Picture")]
+    [SerializeField] private Image profileImageUI;
     [Header("UI References")]
     [SerializeField] private GameObject postItemPrefab;  // The prefab with texts
     [SerializeField] private Transform contentParent;    // The "Content" Transform under your Scroll View
